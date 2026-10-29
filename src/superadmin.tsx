@@ -1,4 +1,4 @@
-// superadmin.tsx – Ekotaboddho B.P Super Admin Dashboard (Liquid Glass & Bug Fixed)
+// superadmin.tsx – Ekotaboddho B.P Super Admin Dashboard (Admin Powers Full)
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -6,7 +6,7 @@ import {
   IoStatsChartOutline, IoRocketOutline, IoFlagOutline, IoImagesOutline,
   IoSettingsOutline, IoCheckmarkCircle, IoCloseCircle, IoCreateOutline,
   IoTrashOutline, IoGridOutline, IoClose, IoCheckmark, IoHourglassOutline, IoWalletOutline,
-  IoLogOutOutline, IoMailOutline
+  IoLogOutOutline, IoMailOutline, IoLockClosedOutline, IoLockOpenOutline, IoCalendar
 } from 'react-icons/io5';
 import { showToast } from './toast';
 
@@ -26,6 +26,9 @@ const SuperAdminScreen: React.FC = () => {
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [missions, setMissions] = useState<any[]>([]);
   const [gallery, setGallery] = useState<any[]>([]);
+  const [polls, setPolls] = useState<any[]>([]);
+  const [notices, setNotices] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
 
@@ -43,8 +46,6 @@ const SuperAdminScreen: React.FC = () => {
   const [selectedPhotosForMission, setSelectedPhotosForMission] = useState<string[]>([]);
   const [galleryTitleInput, setGalleryTitleInput] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  
-  // ✅ Newsletter states
   const [newsletterSubject, setNewsletterSubject] = useState('');
   const [newsletterMessage, setNewsletterMessage] = useState('');
 
@@ -71,9 +72,12 @@ const SuperAdminScreen: React.FC = () => {
   useEffect(() => {
     if (!token) return;
     if (section === 'menu') fetchDashboardStats();
-    if (section === 'members') fetchMembers();
+    if (section === 'members' || section === 'dbedit') fetchMembers();
     if (section === 'missions' || section === 'mission-create') fetchMissions();
     if (section === 'album' || section === 'mission-create') fetchGallery();
+    if (section === 'poll' || section === 'polls-list') fetchPolls();
+    if (section === 'notice') fetchNotices();
+    if (section === 'event') fetchEvents();
   }, [section, token]);
 
   const authHeaders = { Authorization: `Bearer ${token}` };
@@ -153,6 +157,45 @@ const SuperAdminScreen: React.FC = () => {
     }
   };
 
+  const fetchPolls = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/poll/active`, { headers: authHeaders });
+      const data = await res.json();
+      setPolls(data.success ? data.polls : []);
+    } catch (err) {
+      showToast('পোল লোড ব্যর্থ', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchNotices = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/notices`, { headers: authHeaders });
+      const data = await res.json();
+      setNotices(data.success ? data.notices : []);
+    } catch (err) {
+      showToast('নোটিশ লোড ব্যর্থ', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchEvents = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/events/upcoming`, { headers: authHeaders });
+      const data = await res.json();
+      setEvents(data.success ? data.events : []);
+    } catch (err) {
+      showToast('ইভেন্ট লোড ব্যর্থ', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const approveUser = async (id: string) => {
     try {
       const res = await fetch(`${API_URL}/approve/${id}`, { method: 'PUT', headers: authHeaders });
@@ -188,6 +231,24 @@ const SuperAdminScreen: React.FC = () => {
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
   };
 
+  // ✅ Freeze/Unfreeze
+  const toggleFreeze = async (id: string, currentFrozen: boolean) => {
+    const action = currentFrozen ? 'আনফ্রিজ' : 'ফ্রিজ';
+    if (!window.confirm(`আপনি কি এই ইউজারকে ${action} করতে চান?`)) return;
+    try {
+      const res = await fetch(`${API_URL}/users/freeze/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ frozen: !currentFrozen }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        fetchMembers();
+      } else showToast(data.message, 'error');
+    } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
+  };
+
   const handleFundUpdate = async () => {
     if (!fundAmount) return showToast('অ্যামাউন্ট দিন', 'error');
     try {
@@ -217,6 +278,20 @@ const SuperAdminScreen: React.FC = () => {
       if (data.success) {
         showToast('নোটিশ পাঠানো হয়েছে', 'success');
         setNoticeTitle(''); setNoticeDesc('');
+        fetchNotices();
+      } else showToast(data.message, 'error');
+    } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
+  };
+
+  // ✅ Notice delete
+  const handleDeleteNotice = async (id: string) => {
+    if (!window.confirm('এই নোটিশটি ডিলিট করতে চান?')) return;
+    try {
+      const res = await fetch(`${API_URL}/notices/${id}`, { method: 'DELETE', headers: authHeaders });
+      const data = await res.json();
+      if (data.success) {
+        showToast('নোটিশ ডিলিট হয়েছে', 'success');
+        fetchNotices();
       } else showToast(data.message, 'error');
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
   };
@@ -233,6 +308,20 @@ const SuperAdminScreen: React.FC = () => {
       if (data.success) {
         showToast('ইভেন্ট যোগ হয়েছে', 'success');
         setEventTitle(''); setEventDate('');
+        fetchEvents();
+      } else showToast(data.message, 'error');
+    } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
+  };
+
+  // ✅ Event delete
+  const handleDeleteEvent = async (id: string) => {
+    if (!window.confirm('এই ইভেন্টটি ডিলিট করতে চান?')) return;
+    try {
+      const res = await fetch(`${API_URL}/events/${id}`, { method: 'DELETE', headers: authHeaders });
+      const data = await res.json();
+      if (data.success) {
+        showToast('ইভেন্ট ডিলিট হয়েছে', 'success');
+        fetchEvents();
       } else showToast(data.message, 'error');
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
   };
@@ -253,15 +342,27 @@ const SuperAdminScreen: React.FC = () => {
       if (data.success) {
         showToast('পোল তৈরি হয়েছে', 'success');
         setPollQuestion(''); setPollOptions('');
+        fetchPolls();
       } else showToast(data.message, 'error');
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
   };
 
-  // ✅ Newsletter Handler
+  // ✅ Poll delete
+  const handleDeletePoll = async (id: string) => {
+    if (!window.confirm('এই পোলটি ডিলিট করতে চান?')) return;
+    try {
+      const res = await fetch(`${API_URL}/poll/${id}`, { method: 'DELETE', headers: authHeaders });
+      const data = await res.json();
+      if (data.success) {
+        showToast('পোল ডিলিট হয়েছে', 'success');
+        fetchPolls();
+      } else showToast(data.message, 'error');
+    } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
+  };
+
   const handleNewsletterSend = async () => {
     if (!newsletterSubject || !newsletterMessage) return showToast('বিষয় ও বিবরণ দিন', 'error');
     if (!window.confirm('সব সদস্যকে এই ইমেইলটি পাঠাতে চান?')) return;
-
     try {
       const res = await fetch(`${API_URL}/newsletter/send`, {
         method: 'POST',
@@ -293,6 +394,19 @@ const SuperAdminScreen: React.FC = () => {
       if (data.success) {
         showToast('মিশন তৈরি হয়েছে', 'success');
         setMissionTitle(''); setMissionDesc(''); setMissionProgress('0'); setSelectedPhotosForMission([]);
+        fetchMissions(); fetchDashboardStats();
+      } else showToast(data.message, 'error');
+    } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
+  };
+
+  // ✅ Mission delete
+  const handleDeleteMission = async (id: string) => {
+    if (!window.confirm('এই মিশনটি ডিলিট করতে চান?')) return;
+    try {
+      const res = await fetch(`${API_URL}/missions/${id}`, { method: 'DELETE', headers: authHeaders });
+      const data = await res.json();
+      if (data.success) {
+        showToast('মিশন ডিলিট হয়েছে', 'success');
         fetchMissions(); fetchDashboardStats();
       } else showToast(data.message, 'error');
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
@@ -342,6 +456,19 @@ const SuperAdminScreen: React.FC = () => {
     }
   };
 
+  // ✅ Gallery delete
+  const handleDeleteGalleryPhoto = async (id: string) => {
+    if (!window.confirm('এই ছবিটি ডিলিট করতে চান?')) return;
+    try {
+      const res = await fetch(`${API_URL}/gallery/${id}`, { method: 'DELETE', headers: authHeaders });
+      const data = await res.json();
+      if (data.success) {
+        showToast('ছবি ডিলিট হয়েছে', 'success');
+        fetchGallery(); fetchDashboardStats();
+      } else showToast(data.message, 'error');
+    } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
+  };
+
   const togglePhotoSelection = (url: string) => {
     setSelectedPhotosForMission(prev => prev.includes(url) ? prev.filter(u => u !== url) : [...prev, url]);
   };
@@ -379,16 +506,16 @@ const SuperAdminScreen: React.FC = () => {
   };
 
   const menuItems = [
-    { title: 'মেম্বার', icon: 'people', key: 'members', desc: 'অনুমোদন ও ব্যবস্থাপনা' },
+    { title: 'মেম্বার', icon: 'people', key: 'members', desc: 'অনুমোদন, ফ্রিজ ও এডিট' },
     { title: 'ফান্ড', icon: 'cash', key: 'fund', desc: 'তহবিল ব্যবস্থাপনা' },
-    { title: 'নোটিশ', icon: 'megaphone', key: 'notice', desc: 'বার্তা পাঠান' },
-    { title: 'ইভেন্ট', icon: 'calendar', key: 'event', desc: 'অনুষ্ঠান যোগ করুন' },
-    { title: 'পোল', icon: 'stats-chart', key: 'poll', desc: 'ভোটের আয়োজন' },
+    { title: 'নোটিশ', icon: 'megaphone', key: 'notice', desc: 'নোটিশ তৈরি ও ডিলিট' },
+    { title: 'ইভেন্ট', icon: 'calendar', key: 'event', desc: 'ইভেন্ট তৈরি ও ডিলিট' },
+    { title: 'পোল', icon: 'stats-chart', key: 'poll', desc: 'পোল তৈরি ও ডিলিট' },
     { title: 'মিশন তৈরি', icon: 'rocket', key: 'mission-create', desc: 'নতুন প্রকল্প' },
-    { title: 'মিশন লিস্ট', icon: 'flag', key: 'missions', desc: 'অগ্রগতি দেখুন' },
-    { title: 'অ্যালবাম', icon: 'images', key: 'album', desc: 'ছবি আপলোড' },
+    { title: 'মিশন লিস্ট', icon: 'flag', key: 'missions', desc: 'অগ্রগতি ও ডিলিট' },
+    { title: 'অ্যালবাম', icon: 'images', key: 'album', desc: 'ছবি আপলোড ও ডিলিট' },
     { title: 'ডাটাবেস', icon: 'settings', key: 'dbedit', desc: 'তথ্য সম্পাদনা' },
-    { title: 'নিউজলেটার', icon: 'mail', key: 'newsletter', desc: 'সব সদস্যকে ইমেইল পাঠান' }, // ✅ নতুন
+    { title: 'নিউজলেটার', icon: 'mail', key: 'newsletter', desc: 'সবাইকে ইমেইল পাঠান' },
   ];
 
   const getIcon = (icon: string) => {
@@ -403,7 +530,7 @@ const SuperAdminScreen: React.FC = () => {
       case 'flag': return <IoFlagOutline size={28} color={color} />;
       case 'images': return <IoImagesOutline size={28} color={color} />;
       case 'settings': return <IoSettingsOutline size={28} color={color} />;
-      case 'mail': return <IoMailOutline size={28} color={color} />; // ✅ নতুন
+      case 'mail': return <IoMailOutline size={28} color={color} />;
       default: return <IoSettingsOutline size={28} color={color} />;
     }
   };
@@ -461,6 +588,7 @@ const SuperAdminScreen: React.FC = () => {
     </div>
   );
 
+  // ✅ Members with Freeze
   const renderMembers = () => (
     <div className="admin-content">
       <div className="section-title">পেন্ডিং মেম্বার ({pendingUsers.length})</div>
@@ -482,12 +610,22 @@ const SuperAdminScreen: React.FC = () => {
       <div className="section-title">অনুমোদিত মেম্বার ({users.length})</div>
       {loading ? <Spinner /> : users.length === 0 ? <p className="empty-text">কোনো মেম্বার নেই</p> :
         users.map(u => (
-          <div key={u._id} className="list-item glass-card">
+          <div key={u._id} className="list-item glass-card" style={{ borderLeft: u.frozen ? '3px solid #ff4757' : '3px solid transparent' }}>
             <div className="list-item-info">
-              <span className="list-name">{u.name} ({u.memberId})</span>
+              <span className="list-name">
+                {u.name} ({u.memberId})
+                {u.frozen && <span style={{ marginLeft: 6, fontSize: 11, background: '#ff4757', color: '#fff', padding: '2px 6px', borderRadius: 8 }}>❄️ FROZEN</span>}
+              </span>
               <span className="list-sub">{u.phone || 'N/A'}</span>
             </div>
             <div className="list-item-actions">
+              <button 
+                className="icon-btn" 
+                onClick={() => toggleFreeze(u._id, !!u.frozen)} 
+                title={u.frozen ? 'আনফ্রিজ' : 'ফ্রিজ'}
+              >
+                {u.frozen ? <IoLockOpenOutline size={22} color="#2ed573" /> : <IoLockClosedOutline size={22} color="#ff4757" />}
+              </button>
               <button className="icon-btn edit" onClick={() => openEditModal(u)} title="Edit"><IoCreateOutline size={22} /></button>
               <button className="icon-btn delete" onClick={() => deleteUser(u._id)} title="Delete"><IoTrashOutline size={22} /></button>
             </div>
@@ -506,37 +644,90 @@ const SuperAdminScreen: React.FC = () => {
     </div>
   );
 
+  // ✅ Notice with list & delete
   const renderNotice = () => (
-    <div className="admin-content form-container glass-card">
-      <div className="label">শিরোনাম</div>
-      <input className="text-input" value={noticeTitle} onChange={(e) => setNoticeTitle(e.target.value)} placeholder="শিরোনাম" />
-      <div className="label">বিবরণ</div>
-      <textarea className="text-input" rows={4} value={noticeDesc} onChange={(e) => setNoticeDesc(e.target.value)} placeholder="বিবরণ" />
-      <button className="primary-btn" onClick={handleNoticeAdd}>নোটিশ পাঠান</button>
+    <div className="admin-content">
+      <div className="form-container glass-card">
+        <div className="label">শিরোনাম</div>
+        <input className="text-input" value={noticeTitle} onChange={(e) => setNoticeTitle(e.target.value)} placeholder="শিরোনাম" />
+        <div className="label">বিবরণ</div>
+        <textarea className="text-input" rows={4} value={noticeDesc} onChange={(e) => setNoticeDesc(e.target.value)} placeholder="বিবরণ" />
+        <button className="primary-btn" onClick={handleNoticeAdd}>নোটিশ পাঠান</button>
+      </div>
+
+      <div className="section-title">সব নোটিশ ({notices.length})</div>
+      {loading ? <Spinner /> : notices.length === 0 ? <p className="empty-text">কোনো নোটিশ নেই</p> :
+        notices.map(n => (
+          <div key={n._id} className="list-item glass-card">
+            <div className="list-item-info">
+              <span className="list-name">{n.title}</span>
+              <span className="list-sub">{n.description.substring(0, 60)}...</span>
+            </div>
+            <button className="icon-btn delete" onClick={() => handleDeleteNotice(n._id)} title="Delete">
+              <IoTrashOutline size={22} color="#ff4757" />
+            </button>
+          </div>
+        ))
+      }
     </div>
   );
 
+  // ✅ Event with list & delete
   const renderEvent = () => (
-    <div className="admin-content form-container glass-card">
-      <div className="label">ইভেন্টের নাম</div>
-      <input className="text-input" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} placeholder="বনভোজন ২০২৬" />
-      <div className="label">তারিখ</div>
-      <input className="text-input" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
-      <button className="primary-btn" onClick={handleEventAdd}>যোগ করুন</button>
+    <div className="admin-content">
+      <div className="form-container glass-card">
+        <div className="label">ইভেন্টের নাম</div>
+        <input className="text-input" value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} placeholder="বনভোজন ২০২৬" />
+        <div className="label">তারিখ</div>
+        <input className="text-input" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+        <button className="primary-btn" onClick={handleEventAdd}>যোগ করুন</button>
+      </div>
+
+      <div className="section-title">সব ইভেন্ট ({events.length})</div>
+      {loading ? <Spinner /> : events.length === 0 ? <p className="empty-text">কোনো ইভেন্ট নেই</p> :
+        events.map(e => (
+          <div key={e._id} className="list-item glass-card">
+            <div className="list-item-info">
+              <span className="list-name">{e.title}</span>
+              <span className="list-sub">{e.date ? new Date(e.date).toLocaleDateString('bn-BD') : 'তারিখ নেই'}</span>
+            </div>
+            <button className="icon-btn delete" onClick={() => handleDeleteEvent(e._id)} title="Delete">
+              <IoTrashOutline size={22} color="#ff4757" />
+            </button>
+          </div>
+        ))
+      }
     </div>
   );
 
+  // ✅ Poll with list & delete
   const renderPoll = () => (
-    <div className="admin-content form-container glass-card">
-      <div className="label">প্রশ্ন</div>
-      <input className="text-input" value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} placeholder="আগামী শুক্রবার কি বনভোজন হবে?" />
-      <div className="label">অপশন (কমা দিয়ে পৃথক)</div>
-      <input className="text-input" value={pollOptions} onChange={(e) => setPollOptions(e.target.value)} placeholder="হ্যাঁ, না, পরবর্তী মাসে" />
-      <button className="primary-btn" onClick={handlePollCreate}>পোল তৈরি করুন</button>
+    <div className="admin-content">
+      <div className="form-container glass-card">
+        <div className="label">প্রশ্ন</div>
+        <input className="text-input" value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} placeholder="আগামী শুক্রবার কি বনভোজন হবে?" />
+        <div className="label">অপশন (কমা দিয়ে পৃথক)</div>
+        <input className="text-input" value={pollOptions} onChange={(e) => setPollOptions(e.target.value)} placeholder="হ্যাঁ, না, পরবর্তী মাসে" />
+        <button className="primary-btn" onClick={handlePollCreate}>পোল তৈরি করুন</button>
+      </div>
+
+      <div className="section-title">সব চলমান পোল ({polls.length})</div>
+      {loading ? <Spinner /> : polls.length === 0 ? <p className="empty-text">কোনো পোল নেই</p> :
+        polls.map(p => (
+          <div key={p._id} className="list-item glass-card">
+            <div className="list-item-info">
+              <span className="list-name">{p.question}</span>
+              <span className="list-sub">{p.options.map((o: any) => `${o.text} (${o.votes})`).join(' • ')}</span>
+            </div>
+            <button className="icon-btn delete" onClick={() => handleDeletePoll(p._id)} title="Delete">
+              <IoTrashOutline size={22} color="#ff4757" />
+            </button>
+          </div>
+        ))
+      }
     </div>
   );
 
-  // ✅ Newsletter Render
   const renderNewsletter = () => (
     <div className="admin-content form-container glass-card">
       <div className="label">ইমেইলের বিষয় (Subject)</div>
@@ -575,6 +766,7 @@ const SuperAdminScreen: React.FC = () => {
     </div>
   );
 
+  // ✅ Mission list with delete
   const renderMissionsList = () => (
     <div className="admin-content">
       <div className="section-title">চলমান মিশন ({missions.length})</div>
@@ -586,12 +778,16 @@ const SuperAdminScreen: React.FC = () => {
               <div className="progress-bar-bg"><div className="progress-bar-fill" style={{ width: `${m.progress}%` }} /></div>
               <span className="list-sub">{m.progress}% সম্পন্ন</span>
             </div>
+            <button className="icon-btn delete" onClick={() => handleDeleteMission(m._id)} title="Delete">
+              <IoTrashOutline size={22} color="#ff4757" />
+            </button>
           </div>
         ))
       }
     </div>
   );
 
+  // ✅ Album with delete
   const renderAlbum = () => (
     <div className="admin-content">
       <div className="form-container glass-card">
@@ -606,9 +802,17 @@ const SuperAdminScreen: React.FC = () => {
       {loading ? <Spinner /> : gallery.length === 0 ? <p className="empty-text">কোনো ছবি নেই</p> :
         <div className="gallery-grid">
           {gallery.map(img => (
-            <div key={img._id} className="gallery-card glass-card">
+            <div key={img._id} className="gallery-card glass-card" style={{ position: 'relative' }}>
               <img src={img.url} alt={img.caption || 'ছবি'} />
               <div className="gallery-caption">{img.caption || 'ছবি'}</div>
+              <button 
+                className="icon-btn delete" 
+                onClick={() => handleDeleteGalleryPhoto(img._id)} 
+                title="Delete"
+                style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(255,71,87,0.9)', padding: 4 }}
+              >
+                <IoTrashOutline size={16} color="#fff" />
+              </button>
             </div>
           ))}
         </div>
@@ -640,7 +844,7 @@ const SuperAdminScreen: React.FC = () => {
       case 'notice': return renderNotice();
       case 'event': return renderEvent();
       case 'poll': return renderPoll();
-      case 'newsletter': return renderNewsletter(); // ✅ নতুন
+      case 'newsletter': return renderNewsletter();
       case 'mission-create': return renderMissionCreate();
       case 'missions': return renderMissionsList();
       case 'album': return renderAlbum();
@@ -658,11 +862,9 @@ const SuperAdminScreen: React.FC = () => {
           --primary: #6C63FF; 
           --primary-light: rgba(108, 99, 255, 0.15);
           --bg: #f3f0ff;
-          
           --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%);
           --glass-border: rgba(255, 255, 255, 0.5);
           --glass-blur: blur(25px);
-          
           --text-dark: #2d2d2d; 
           --text-muted: #777777;
           --shadow-main: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
@@ -675,9 +877,6 @@ const SuperAdminScreen: React.FC = () => {
         .superadmin-container { 
           position: relative; min-height: 100dvh; background: linear-gradient(135deg, #f3f0ff 0%, #e8e4ff 100%); overflow: hidden;
         }
-
-        .floating-bubble { position: absolute; z-index: 0; pointer-events: none; filter: blur(8px); animation: float 6s ease-in-out infinite; }
-        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
 
         .admin-header {
           display: flex; align-items: center; justify-content: space-between;
@@ -721,12 +920,12 @@ const SuperAdminScreen: React.FC = () => {
           padding: 15px; border-radius: 16px; margin-bottom: 10px;
           display: flex; align-items: center; justify-content: space-between;
         }
-        .list-item-info { flex: 1; }
+        .list-item-info { flex: 1; margin-right: 10px; }
         .list-name { font-size: 16px; font-weight: 700; color: var(--text-dark); }
         .list-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
-        .list-item-actions { display: flex; gap: 10px; }
+        .list-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
         
-        .icon-btn { background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.8); border-radius: 50%; cursor: pointer; padding: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .icon-btn { background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.8); border-radius: 50%; cursor: pointer; padding: 6px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
         .icon-btn.approve { color: #2ed573; }
         .icon-btn.reject, .icon-btn.delete { color: #ff4757; }
         .icon-btn.edit { color: #f0a500; }
@@ -784,26 +983,13 @@ const SuperAdminScreen: React.FC = () => {
         }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 15px; color: #333; }
-        
-        .floating-menu-btn {
-          position: fixed; bottom: 25px; right: 25px; background: var(--primary); color: #fff;
-          border: none; width: 60px; height: 60px; border-radius: 50%; cursor: pointer;
-          box-shadow: 0 8px 25px rgba(108, 99, 255, 0.4); display: flex; align-items: center; justify-content: center; z-index: 100;
-        }
       `}</style>
-
-      <div className="floating-bubble" style={{ width: 150, height: 150, borderRadius: '50%', background: 'rgba(108, 99, 255, 0.2)', top: -30, left: -30, animationDelay: '0s' }} />
-      <div className="floating-bubble" style={{ width: 100, height: 100, borderRadius: '50%', background: 'rgba(255, 107, 107, 0.15)', top: 300, right: -40, animationDelay: '1s' }} />
-      <div className="floating-bubble" style={{ width: 200, height: 200, borderRadius: '50%', background: 'rgba(78, 205, 196, 0.15)', bottom: -60, left: -50, animationDelay: '0.5s' }} />
 
       {renderHeader()}
 
       {section === 'menu' ? renderMenu() : (
         <div style={{ position: 'relative', minHeight: '80vh' }}>
           {renderSection()}
-          <button className="floating-menu-btn" onClick={() => setSection('menu')}>
-            <IoGridOutline size={28} />
-          </button>
         </div>
       )}
 
