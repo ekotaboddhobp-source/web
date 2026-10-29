@@ -30,6 +30,7 @@ export default function Dashboard() {
   const [userData, setUserData] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
+  const [isFrozen, setIsFrozen] = useState(false); // ✅ নতুন
   const [rulesAccepted, setRulesAccepted] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [fund, setFund] = useState(0);
@@ -81,7 +82,7 @@ export default function Dashboard() {
       if (pollData?.success && Array.isArray(pollData.polls) && pollData.polls.length > 0) {
         setActivePoll(pollData.polls[0]);
         
-        // ✅ ইউজার আগে ভোট দিয়েছে কিনা চেক
+        // ✅ ইউজার আগে ভোট দিয়েছে কিনা চেক
         const userId = JSON.parse(localStorage.getItem('user') || '{}')?._id;
         if (userId && Array.isArray(pollData.polls[0].voters) && pollData.polls[0].voters.some((v: any) => 
           (typeof v === 'string' ? v : v?.toString?.()) === userId
@@ -123,6 +124,7 @@ export default function Dashboard() {
       setIsAdmin(user.role === 'admin' || user.isAdmin === true);
       setIsApproved(user.approved === true);
       setRulesAccepted(user.rulesAccepted === true);
+      setIsFrozen(user.frozen === true); // ✅ নতুন
     }
   }, []);
 
@@ -408,7 +410,19 @@ export default function Dashboard() {
             </div>
           </FadeInView>
 
-          {isApproved ? (
+          {isFrozen ? (
+            <div style={{ textAlign: 'center', padding: 40, background: 'rgba(255,71,87,0.1)', backdropFilter: 'blur(10px)', borderRadius: 24, marginTop: 20, border: '2px solid #ff4757' }}>
+              <div style={{ fontSize: 60, marginBottom: 15 }}>🚫</div>
+              <h3 style={{ fontSize: 22, color: '#ff4757', marginBottom: 10, fontWeight: 800 }}>আপনার অ্যাকাউন্ট ফ্রিজ করা হয়েছে!</h3>
+              <p style={{ fontSize: 16, color: '#333', marginBottom: 20, lineHeight: 1.6 }}>
+                অ্যাডমিন আপনার অ্যাকাউন্টটি সাময়িকভাবে ফ্রিজ করেছেন। <br />
+                সমস্যা সমাধানের জন্য অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন।
+              </p>
+              <button onClick={handleLogout} style={{ width: '100%', padding: 14, background: '#ff4757', color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer', fontWeight: 700 }}>
+                লগআউট করুন
+              </button>
+            </div>
+          ) : isApproved ? (
             <>
               {userData && (
                 <FadeInView delay={100}>
@@ -613,7 +627,7 @@ export default function Dashboard() {
             <div className="info-row"><IoWaterOutline size={20} color="#ff4757" /><span className="modal-text">রক্তের গ্রুপ: {selectedMember.bloodGroup || 'N/A'}</span></div>
             <div className="info-row"><IoCallOutline size={20} color="#6C63FF" /><span className="modal-text">ফোন: {selectedMember.phone || 'N/A'}</span></div>
             <div className="info-row"><IoLocationOutline size={20} color="#6C63FF" /><span className="modal-text">এলাকা: {selectedMember.area || selectedMember.district || 'N/A'}</span></div>
-            {selectedMember.houseName && <div className="info-row"><IoBusinessOutline size={20} color="#ffa502" /><span className="modal-text">বাড়ি: {selectedMember.houseName}</span></div>}
+            {selectedMember.houseName && <div className="info-row"><IoBusinessOutline size={20} color="#ffa502" /><span className="modal-text">বাড়ি: {selectedMember.houseName}</span></div>}
           </div>
         </div>
       )}
