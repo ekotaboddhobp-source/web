@@ -6,7 +6,7 @@ import {
   IoStatsChartOutline, IoRocketOutline, IoFlagOutline, IoImagesOutline,
   IoSettingsOutline, IoCheckmarkCircle, IoCloseCircle, IoCreateOutline,
   IoTrashOutline, IoGridOutline, IoClose, IoCheckmark, IoHourglassOutline, IoWalletOutline,
-  IoLogOutOutline
+  IoLogOutOutline, IoMailOutline
 } from 'react-icons/io5';
 import { showToast } from './toast';
 
@@ -43,6 +43,10 @@ const SuperAdminScreen: React.FC = () => {
   const [selectedPhotosForMission, setSelectedPhotosForMission] = useState<string[]>([]);
   const [galleryTitleInput, setGalleryTitleInput] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  
+  // ✅ Newsletter states
+  const [newsletterSubject, setNewsletterSubject] = useState('');
+  const [newsletterMessage, setNewsletterMessage] = useState('');
 
   // Modals
   const [photoPickerModalVisible, setPhotoPickerModalVisible] = useState(false);
@@ -163,7 +167,6 @@ const SuperAdminScreen: React.FC = () => {
   const rejectUser = async (id: string) => {
     if (!window.confirm('আপনি কি এই ইউজারকে রিজেক্ট করতে চান?')) return;
     try {
-      // ✅ ফিক্স: DELETE এর বদলে নতুন রাউট
       const res = await fetch(`${API_URL}/users/reject/${id}`, { method: 'PUT', headers: authHeaders });
       const data = await res.json();
       if (data.success) {
@@ -237,22 +240,38 @@ const SuperAdminScreen: React.FC = () => {
   const handlePollCreate = async () => {
     if (!pollQuestion || !pollOptions) return showToast('প্রশ্ন ও অপশন দিন', 'error');
     try {
-      // ✅ ফিক্স: স্ট্রিং থেকে অ্যারে-তে কনভার্ট করা হচ্ছে
       const optionsArray = pollOptions.split(',').map(opt => opt.trim()).filter(opt => opt !== '');
-      
       if (optionsArray.length < 2) {
         return showToast('কমপক্ষে ২টি অপশন দিন (কমা দিয়ে পৃথক করুন)', 'error');
       }
-
       const res = await fetch(`${API_URL}/poll/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
-        body: JSON.stringify({ question: pollQuestion, options: optionsArray }), // ✅ অ্যারে পাঠানো হচ্ছে
+        body: JSON.stringify({ question: pollQuestion, options: optionsArray }),
       });
       const data = await res.json();
       if (data.success) {
         showToast('পোল তৈরি হয়েছে', 'success');
         setPollQuestion(''); setPollOptions('');
+      } else showToast(data.message, 'error');
+    } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
+  };
+
+  // ✅ Newsletter Handler
+  const handleNewsletterSend = async () => {
+    if (!newsletterSubject || !newsletterMessage) return showToast('বিষয় ও বিবরণ দিন', 'error');
+    if (!window.confirm('সব সদস্যকে এই ইমেইলটি পাঠাতে চান?')) return;
+
+    try {
+      const res = await fetch(`${API_URL}/newsletter/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ subject: newsletterSubject, message: newsletterMessage }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        setNewsletterSubject(''); setNewsletterMessage('');
       } else showToast(data.message, 'error');
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
   };
@@ -369,6 +388,7 @@ const SuperAdminScreen: React.FC = () => {
     { title: 'মিশন লিস্ট', icon: 'flag', key: 'missions', desc: 'অগ্রগতি দেখুন' },
     { title: 'অ্যালবাম', icon: 'images', key: 'album', desc: 'ছবি আপলোড' },
     { title: 'ডাটাবেস', icon: 'settings', key: 'dbedit', desc: 'তথ্য সম্পাদনা' },
+    { title: 'নিউজলেটার', icon: 'mail', key: 'newsletter', desc: 'সব সদস্যকে ইমেইল পাঠান' }, // ✅ নতুন
   ];
 
   const getIcon = (icon: string) => {
@@ -383,6 +403,7 @@ const SuperAdminScreen: React.FC = () => {
       case 'flag': return <IoFlagOutline size={28} color={color} />;
       case 'images': return <IoImagesOutline size={28} color={color} />;
       case 'settings': return <IoSettingsOutline size={28} color={color} />;
+      case 'mail': return <IoMailOutline size={28} color={color} />; // ✅ নতুন
       default: return <IoSettingsOutline size={28} color={color} />;
     }
   };
@@ -515,6 +536,17 @@ const SuperAdminScreen: React.FC = () => {
     </div>
   );
 
+  // ✅ Newsletter Render
+  const renderNewsletter = () => (
+    <div className="admin-content form-container glass-card">
+      <div className="label">ইমেইলের বিষয় (Subject)</div>
+      <input className="text-input" value={newsletterSubject} onChange={(e) => setNewsletterSubject(e.target.value)} placeholder="যেমন: মাসিক মিটিং এর নোটিশ" />
+      <div className="label">মেসেজ (Message)</div>
+      <textarea className="text-input" rows={6} value={newsletterMessage} onChange={(e) => setNewsletterMessage(e.target.value)} placeholder="এখানে আপনার বক্তব্য লিখুন..." />
+      <button className="primary-btn" onClick={handleNewsletterSend} style={{ marginTop: 10 }}>সব সদস্যকে ইমেইল পাঠান</button>
+    </div>
+  );
+
   const renderMissionCreate = () => (
     <div className="admin-content form-container glass-card">
       <div className="label">মিশনের নাম</div>
@@ -608,6 +640,7 @@ const SuperAdminScreen: React.FC = () => {
       case 'notice': return renderNotice();
       case 'event': return renderEvent();
       case 'poll': return renderPoll();
+      case 'newsletter': return renderNewsletter(); // ✅ নতুন
       case 'mission-create': return renderMissionCreate();
       case 'missions': return renderMissionsList();
       case 'album': return renderAlbum();
