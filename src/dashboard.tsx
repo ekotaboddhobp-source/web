@@ -30,7 +30,7 @@ export default function Dashboard() {
   const [userData, setUserData] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
-  const [rulesAccepted, setRulesAccepted] = useState(false); // ✅ নতুন স্টেট
+  const [rulesAccepted, setRulesAccepted] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [fund, setFund] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,7 +47,7 @@ export default function Dashboard() {
   const [superAdminVisible, setSuperAdminVisible] = useState(false);
   const [superPassword, setSuperPassword] = useState('');
   const [showRulesModal, setShowRulesModal] = useState(false);
-  const [rulesCheckbox, setRulesCheckbox] = useState(false); // চেকবক্সের জন্য
+  const [rulesCheckbox, setRulesCheckbox] = useState(false);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
 
   const fetchAllData = useCallback(async () => {
@@ -80,6 +80,14 @@ export default function Dashboard() {
       
       if (pollData?.success && Array.isArray(pollData.polls) && pollData.polls.length > 0) {
         setActivePoll(pollData.polls[0]);
+        
+        // ✅ ইউজার আগে ভোট দিয়েছে কিনা চেক
+        const userId = JSON.parse(localStorage.getItem('user') || '{}')?._id;
+        if (userId && Array.isArray(pollData.polls[0].voters) && pollData.polls[0].voters.some((v: any) => 
+          (typeof v === 'string' ? v : v?.toString?.()) === userId
+        )) {
+          setVoted(true);
+        }
       } else {
         setActivePoll(null);
       }
@@ -114,7 +122,7 @@ export default function Dashboard() {
       setUserData(user);
       setIsAdmin(user.role === 'admin' || user.isAdmin === true);
       setIsApproved(user.approved === true);
-      setRulesAccepted(user.rulesAccepted === true); // ✅ নতুন
+      setRulesAccepted(user.rulesAccepted === true);
     }
   }, []);
 
@@ -122,7 +130,6 @@ export default function Dashboard() {
     if (isApproved) {
       fetchAllData();
     } else if (!rulesAccepted) {
-      // ✅ ইউজার অ্যাপ্রুভড না হলে এবং রুলস অ্যাকসেপ্ট না করলে মডাল দেখাবে
       setShowRulesModal(true);
     }
   }, [isApproved, rulesAccepted, fetchAllData]);
@@ -161,7 +168,6 @@ export default function Dashboard() {
     setIsSubmittingApproval(true);
     try {
       const token = localStorage.getItem('token');
-      // ✅ নতুন এপিআই কল
       const res = await fetch(`${API_URL}/users/accept-rules`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -170,7 +176,7 @@ export default function Dashboard() {
       if (data.success) {
         showToast('নিয়মাবলী গ্রহণ করা হয়েছে! অ্যাডমিনের অনুমোদনের অপেক্ষা করুন।', 'success');
         setShowRulesModal(false);
-        setRulesAccepted(true); // লোকাল স্টেট আপডেট
+        setRulesAccepted(true);
         
         const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
         storedUser.rulesAccepted = true;
@@ -549,11 +555,21 @@ export default function Dashboard() {
             <div style={{ textAlign: 'center', padding: 40, color: '#888', background: 'rgba(255,255,255,0.4)', backdropFilter: 'blur(10px)', borderRadius: 24, marginTop: 20, border: '1px solid var(--glass-border)' }}>
               <IoHourglassOutline size={50} color="#6C63FF" style={{ marginBottom: 15 }}/>
               <h3 style={{ fontSize: 20, color: 'var(--text-dark)', marginBottom: 8 }}>অনুমোদনের অপেক্ষায়...</h3>
-              <p style={{ fontSize: 15 }}>
+              <p style={{ fontSize: 15, marginBottom: 20 }}>
                 {rulesAccepted 
                   ? 'আপনি রুলস অ্যাকসেপ্ট করেছেন। অ্যাডমিন আপনার অ্যাকাউন্ট অ্যাপ্রুভ করলেই সব ফিচার আনলক হবে।' 
-                  : 'অনুগ্রহ করে রুলস মডালে সম্মতি দিন।'}
+                  : 'অনুগ্রহ করে নিয়মাবলীতে সম্মতি দিন।'}
               </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {!rulesAccepted && (
+                  <button onClick={() => setShowRulesModal(true)} style={{ width: '100%', padding: 14, background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer', fontWeight: 700 }}>
+                    নিয়মাবলী দেখুন
+                  </button>
+                )}
+                <button onClick={handleLogout} style={{ width: '100%', padding: 14, background: 'transparent', color: '#ff4757', border: '1px solid #ff4757', borderRadius: 12, cursor: 'pointer', fontWeight: 700 }}>
+                  লগআউট
+                </button>
+              </div>
             </div>
           )}
 
@@ -636,7 +652,7 @@ export default function Dashboard() {
             </ul>
             <label className="checkbox-label">
               <input type="checkbox" checked={rulesCheckbox} onChange={(e) => setRulesCheckbox(e.target.checked)} />
-              আমি উপরোক্ত নিয়মাবলী মেনে চলতে সম্মত
+              আমি উপরোক্ত নিয়ামবলী মেনে চলতে সম্মত
             </label>
             <button
               onClick={handleAcceptRules}
