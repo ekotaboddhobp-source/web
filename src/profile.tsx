@@ -26,7 +26,6 @@ export default function ProfileScreen() {
     }
   }, [navigate]);
 
-  // ছবি আপলোড করার লজিক (Web Base64)
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -83,12 +82,9 @@ export default function ProfileScreen() {
           --primary: #6C63FF; 
           --primary-light: rgba(108, 99, 255, 0.15);
           --bg: #f3f0ff;
-          
-          /* ✅ Liquid Glass Variables */
           --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%);
           --glass-border: rgba(255, 255, 255, 0.5);
           --glass-blur: blur(25px);
-          
           --text-dark: #2d2d2d; 
           --text-muted: #777777;
           --shadow-main: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
@@ -107,11 +103,7 @@ export default function ProfileScreen() {
           overflow: hidden;
         }
         
-        /* Background Bubbles */
-        .floating-bubble {
-          position: absolute; z-index: 0; pointer-events: none; filter: blur(8px);
-          animation: float 6s ease-in-out infinite;
-        }
+        .floating-bubble { position: absolute; z-index: 0; pointer-events: none; filter: blur(8px); animation: float 6s ease-in-out infinite; }
         @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
 
         .main-scroll { width: 100%; max-width: 600px; padding: 0 15px; position: relative; z-index: 10; }
@@ -124,7 +116,6 @@ export default function ProfileScreen() {
         }
         .header-title { font-size: 22px; font-weight: 800; }
 
-        /* ✅ VIP Card (Liquid Glass) */
         .vip-card {
           background: linear-gradient(135deg, rgba(30, 39, 46, 0.95), rgba(45, 52, 54, 0.9));
           backdrop-filter: var(--glass-blur);
@@ -152,6 +143,7 @@ export default function ProfileScreen() {
           width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
           border: 2px solid #fff;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
         
         .user-info { flex: 1; color: #fff; }
         .user-name { font-size: 20px; font-weight: 800; margin-bottom: 2px; }
@@ -169,7 +161,6 @@ export default function ProfileScreen() {
           border: 1px solid rgba(255,255,255,0.1); cursor: pointer;
         }
 
-        /* ✅ Settings List */
         .settings-section {
           background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
           border: 1px solid var(--glass-border); border-radius: 24px; padding: 10px 20px; margin-bottom: 20px;
@@ -190,7 +181,6 @@ export default function ProfileScreen() {
         }
         .setting-text { font-size: 15px; font-weight: 600; color: #333; }
         
-        /* ✅ Bottom Nav */
         .bottom-nav-container { 
           position: fixed; bottom: 0; left: 0; right: 0; height: calc(70px + env(safe-area-inset-bottom, 0px));
           padding-bottom: env(safe-area-inset-bottom, 0px); backdrop-filter: blur(25px); background: rgba(255,255,255,0.7);
@@ -203,7 +193,6 @@ export default function ProfileScreen() {
       `}</style>
 
       <div className="profile-container">
-        {/* Background Bubbles */}
         <div className="floating-bubble" style={{ width: 150, height: 150, borderRadius: '50%', background: 'rgba(108, 99, 255, 0.25)', top: -30, left: -30, animationDelay: '0s' }} />
         <div className="floating-bubble" style={{ width: 100, height: 100, borderRadius: '50%', background: 'rgba(255, 107, 107, 0.2)', top: 150, right: -40, animationDelay: '1s' }} />
 
@@ -213,10 +202,9 @@ export default function ProfileScreen() {
               <FaArrowLeft size={18} />
             </button>
             <h1 className="header-title">আমার প্রোফাইল</h1>
-            <div style={{ width: 44 }} /> {/* Spacer */}
+            <div style={{ width: 44 }} />
           </div>
 
-          {/* VIP Digital ID Card */}
           <div className="vip-card">
             <div className="watermark"><FaQrcode /></div>
             
@@ -230,13 +218,17 @@ export default function ProfileScreen() {
             </div>
 
             <div className="card-body">
-              <div className="avatar-box" onClick={() => fileInputRef.current?.click()}>
-                {userData.photoUrl ? (
+              <div className="avatar-box" onClick={() => !uploadingPhoto && fileInputRef.current?.click()}>
+                {uploadingPhoto ? (
+                  <div style={{ width: 30, height: 30, border: '3px solid rgba(108,99,255,0.2)', borderTopColor: '#6C63FF', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                ) : userData.photoUrl ? (
                   <img src={userData.photoUrl} alt="Profile" />
                 ) : (
                   <span className="initial">{userData.name?.charAt(0) || 'U'}</span>
                 )}
-                <div className="camera-icon"><FaCamera size={12} color="#fff" /></div>
+                {!uploadingPhoto && (
+                  <div className="camera-icon"><FaCamera size={12} color="#fff" /></div>
+                )}
               </div>
               <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handlePhotoChange} />
               
@@ -248,10 +240,8 @@ export default function ProfileScreen() {
               </div>
             </div>
 
-            {/* Dummy QR for Web */}
             <div className="qr-section">
               <div className="qr-box">
-                {/* Placeholder for QR code */}
                 <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${userData.memberId || 'N/A'}`} alt="QR" className="qr-img" />
               </div>
             </div>
@@ -262,7 +252,6 @@ export default function ProfileScreen() {
             </div>
           </div>
 
-          {/* Settings Options */}
           <div className="settings-section">
             <div className="section-title">একাউন্ট সেটিংস</div>
             
@@ -299,7 +288,6 @@ export default function ProfileScreen() {
           </div>
         </div>
 
-        {/* Bottom Navigation */}
         <div className="bottom-nav-container">
           <button className="nav-item" onClick={() => navigate('/dashboard')}>
             <div className="nav-icon-circle"><FaHome size={22} color="#666" /></div>
