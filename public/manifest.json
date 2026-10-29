@@ -1,0 +1,22 @@
+{
+  "name": "Ekotaboddho B.P",
+  "short_name": "Ekotaboddho",
+  "description": "Ekotaboddho B.P Club App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f0ff",
+  "theme_color": "#6C63FF",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.jpeg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/logo.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
