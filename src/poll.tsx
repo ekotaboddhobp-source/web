@@ -22,13 +22,24 @@ export default function PollScreen() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      // ✅ ফিক্স: /polls/active থেকে /poll/active করা হয়েছে
       const res = await fetch(`${API_URL}/poll/active`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.polls)) {
         setPolls(data.polls);
+        
+        // ✅ ভোট স্টেট সিঙ্ক করা
+        const userId = JSON.parse(localStorage.getItem('user') || '{}')?._id;
+        const newVotedMap: Record<string, boolean> = {};
+        data.polls.forEach((p: any) => {
+          if (Array.isArray(p.voters) && userId && p.voters.some((v: any) => 
+            (typeof v === 'string' ? v : v?.toString?.()) === userId
+          )) {
+            newVotedMap[p._id] = true;
+          }
+        });
+        setVotedMap(prev => ({ ...prev, ...newVotedMap }));
       } else {
         setPolls([]);
       }
@@ -46,7 +57,6 @@ export default function PollScreen() {
   const handleVote = async (pollId: string, optionIndex: number) => {
     try {
       const token = localStorage.getItem('token');
-      // ✅ ফিক্স: /polls/vote থেকে /poll/vote করা হয়েছে
       const res = await fetch(`${API_URL}/poll/vote/${pollId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -57,7 +67,7 @@ export default function PollScreen() {
       if (data.success) {
         setVotedMap(prev => ({ ...prev, [pollId]: true }));
         showToast('আপনার ভোট সফলভাবে গৃহীত হয়েছে!', 'success');
-        fetchPolls(); // রিফ্রেশ করে নতুন ভোট কাউন্ট দেখানো
+        fetchPolls(); 
       } else {
         showToast(data.message || 'ভোট দিতে সমস্যা হয়েছে', 'error');
       }
@@ -74,12 +84,9 @@ export default function PollScreen() {
           --primary: #6C63FF; 
           --primary-light: rgba(108, 99, 255, 0.15);
           --bg: #f3f0ff;
-          
-          /* ✅ Liquid Glass Variables */
           --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%);
           --glass-border: rgba(255, 255, 255, 0.5);
           --glass-blur: blur(25px);
-          
           --text-dark: #2d2d2d; 
           --text-muted: #777777;
           --shadow-main: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
@@ -98,11 +105,7 @@ export default function PollScreen() {
           overflow: hidden;
         }
         
-        /* Background Bubbles */
-        .floating-bubble {
-          position: absolute; z-index: 0; pointer-events: none; filter: blur(8px);
-          animation: float 6s ease-in-out infinite;
-        }
+        .floating-bubble { position: absolute; z-index: 0; pointer-events: none; filter: blur(8px); animation: float 6s ease-in-out infinite; }
         @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
 
         .main-scroll { width: 100%; max-width: 600px; padding: 0 15px; position: relative; z-index: 10; }
@@ -116,7 +119,6 @@ export default function PollScreen() {
         .refresh-btn { color: var(--primary); }
         .header-title { font-size: 22px; font-weight: 800; }
         
-        /* ✅ Liquid Glass Poll Card */
         .poll-card {
           background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
           border: 1px solid var(--glass-border); border-radius: 24px; padding: 20px; margin-bottom: 15px;
@@ -151,7 +153,6 @@ export default function PollScreen() {
         .fade-in-view { opacity: 0; animation: fadeInUp 0.5s forwards; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* ✅ Liquid Glass Bottom Nav */
         .bottom-nav-container { 
           position: fixed; bottom: 0; left: 0; right: 0; height: calc(70px + env(safe-area-inset-bottom, 0px));
           padding-bottom: env(safe-area-inset-bottom, 0px); backdrop-filter: blur(25px); background: rgba(255,255,255,0.7);
@@ -164,7 +165,6 @@ export default function PollScreen() {
       `}</style>
 
       <div className="poll-container">
-        {/* Background Bubbles */}
         <div className="floating-bubble" style={{ width: 150, height: 150, borderRadius: '50%', background: 'rgba(108, 99, 255, 0.25)', top: -30, left: -30, animationDelay: '0s' }} />
         <div className="floating-bubble" style={{ width: 100, height: 100, borderRadius: '50%', background: 'rgba(255, 107, 107, 0.2)', top: 150, right: -40, animationDelay: '1s' }} />
         <div className="floating-bubble" style={{ width: 180, height: 180, borderRadius: '50%', background: 'rgba(78, 205, 196, 0.2)', bottom: -60, left: -50, animationDelay: '0.5s' }} />
@@ -218,7 +218,6 @@ export default function PollScreen() {
           )}
         </div>
 
-        {/* ✅ Bottom Navigation (Liquid Glass & Home Button Fixed) */}
         <div className="bottom-nav-container">
           <button className="nav-item" onClick={() => navigate('/dashboard')}>
             <div className="nav-icon-circle"><FaHome size={22} color="#666" /></div>
