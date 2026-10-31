@@ -30,7 +30,7 @@ export default function Dashboard() {
   const [userData, setUserData] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
-  const [isFrozen, setIsFrozen] = useState(false); // ✅ নতুন
+  const [isFrozen, setIsFrozen] = useState(false);
   const [rulesAccepted, setRulesAccepted] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [fund, setFund] = useState(0);
@@ -82,7 +82,6 @@ export default function Dashboard() {
       if (pollData?.success && Array.isArray(pollData.polls) && pollData.polls.length > 0) {
         setActivePoll(pollData.polls[0]);
         
-        // ✅ ইউজার আগে ভোট দিয়েছে কিনা চেক
         const userId = JSON.parse(localStorage.getItem('user') || '{}')?._id;
         if (userId && Array.isArray(pollData.polls[0].voters) && pollData.polls[0].voters.some((v: any) => 
           (typeof v === 'string' ? v : v?.toString?.()) === userId
@@ -124,7 +123,7 @@ export default function Dashboard() {
       setIsAdmin(user.role === 'admin' || user.isAdmin === true);
       setIsApproved(user.approved === true);
       setRulesAccepted(user.rulesAccepted === true);
-      setIsFrozen(user.frozen === true); // ✅ নতুন
+      setIsFrozen(user.frozen === true);
     }
   }, []);
 
@@ -193,14 +192,31 @@ export default function Dashboard() {
     }
   };
 
-  const handleSuperAdminLogin = () => {
-    if (superPassword === '186401') {
-      localStorage.setItem('superAdminVerified', 'true');
-      setSuperAdminVisible(false);
-      setSuperPassword('');
-      navigate('/superadmin');
-    } else {
-      showToast('Access Denied - Incorrect Password!', 'error');
+  // ==================== ✅ FIX: Super Admin Login via API ====================
+  const handleSuperAdminLogin = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/verify-super`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ password: superPassword }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        localStorage.setItem('superAdminVerified', 'true');
+        localStorage.setItem('superToken', data.superToken);
+        setSuperAdminVisible(false);
+        setSuperPassword('');
+        navigate('/superadmin');
+      } else {
+        showToast(data.message || 'Access Denied - Incorrect Password!', 'error');
+      }
+    } catch {
+      showToast('সার্ভার সমস্যা', 'error');
     }
   };
 
