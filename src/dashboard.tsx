@@ -27,11 +27,30 @@ const FadeInView: React.FC<{ children: React.ReactNode; delay?: number }> = ({ c
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  const [userData, setUserData] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isApproved, setIsApproved] = useState(false);
-  const [isFrozen, setIsFrozen] = useState(false);
-  const [rulesAccepted, setRulesAccepted] = useState(false);
+  // ✅ Fix 1: localStorage থেকে সরাসরি স্টেট ইনিশিয়ালাইজ করা হলো, যাতে পপআপ বারবার না আসে
+  const [userData, setUserData] = useState<any>(() => {
+    const stored = localStorage.getItem('user');
+    return stored ? JSON.parse(stored) : null;
+  });
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    const stored = localStorage.getItem('user');
+    if (!stored) return false;
+    const u = JSON.parse(stored);
+    return u.role === 'admin' || u.isAdmin === true;
+  });
+  const [isApproved, setIsApproved] = useState<boolean>(() => {
+    const stored = localStorage.getItem('user');
+    return stored ? JSON.parse(stored).approved === true : false;
+  });
+  const [isFrozen, setIsFrozen] = useState<boolean>(() => {
+    const stored = localStorage.getItem('user');
+    return stored ? JSON.parse(stored).frozen === true : false;
+  });
+  const [rulesAccepted, setRulesAccepted] = useState<boolean>(() => {
+    const stored = localStorage.getItem('user');
+    return stored ? JSON.parse(stored).rulesAccepted === true : false;
+  });
+
   const [members, setMembers] = useState<any[]>([]);
   const [fund, setFund] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,6 +69,27 @@ export default function Dashboard() {
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [rulesCheckbox, setRulesCheckbox] = useState(false);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+
+  // ✅ Fix 2: সার্ভার থেকে লেটেস্ট ইউজার ডাটা (ছবি, ফ্রিজ, রুলস) নিয়ে আসা
+  const fetchMe = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/users/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUserData(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setIsApproved(data.user.approved === true);
+        setRulesAccepted(data.user.rulesAccepted === true);
+        setIsFrozen(data.user.frozen === true);
+        setIsAdmin(data.user.role === 'admin' || data.user.isAdmin === true);
+      }
+    } catch (e) {
+      console.error("Failed to fetch user data", e);
+    }
+  };
 
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
@@ -81,7 +121,6 @@ export default function Dashboard() {
       
       if (pollData?.success && Array.isArray(pollData.polls) && pollData.polls.length > 0) {
         setActivePoll(pollData.polls[0]);
-        
         const userId = JSON.parse(localStorage.getItem('user') || '{}')?._id;
         if (userId && Array.isArray(pollData.polls[0].voters) && pollData.polls[0].voters.some((v: any) => 
           (typeof v === 'string' ? v : v?.toString?.()) === userId
@@ -116,27 +155,23 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      setUserData(user);
-      setIsAdmin(user.role === 'admin' || user.isAdmin === true);
-      setIsApproved(user.approved === true);
-      setRulesAccepted(user.rulesAccepted === true);
-      setIsFrozen(user.frozen === true);
-    }
+    fetchMe(); // Fetch latest data on mount
   }, []);
 
   useEffect(() => {
+    // ✅ Fix 3: ডাটা লোড হওয়ার পরেই কেবল চেক করবে
+    if (!userData) return;
+
     if (isApproved) {
       fetchAllData();
     } else if (!rulesAccepted) {
       setShowRulesModal(true);
     }
-  }, [isApproved, rulesAccepted, fetchAllData]);
+  }, [isApproved, rulesAccepted, userData?._id, fetchAllData]); // userData._id যুক্ত করা হলো
 
   const handleRefresh = () => {
     if (isApproved) {
+      fetchMe();
       fetchAllData();
       showToast('ড্যাশবোর্ড আপডেট হয়েছে', 'success');
     }
@@ -175,13 +210,14 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast('নিয়মাবলী গ্রহণ করা হয়েছে! অ্যাডমিনের অনুমোদনের অপেক্ষা করুন।', 'success');
+        showToast('নিয়মাবলী গ্রহণ করা হয়েছে!', 'success');
         setShowRulesModal(false);
         setRulesAccepted(true);
         
         const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
         storedUser.rulesAccepted = true;
         localStorage.setItem('user', JSON.stringify(storedUser));
+        setUserData(storedUser);
       } else {
         showToast(data.message || 'সমস্যা হয়েছে', 'error');
       }
@@ -192,7 +228,6 @@ export default function Dashboard() {
     }
   };
 
-  // ==================== ✅ FIX: Super Admin Login via API ====================
   const handleSuperAdminLogin = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -236,11 +271,9 @@ export default function Dashboard() {
           --primary: #6C63FF; 
           --primary-light: rgba(108, 99, 255, 0.15);
           --bg: #f3f0ff;
-          
           --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.05) 100%);
           --glass-border: rgba(255, 255, 255, 0.5);
           --glass-blur: blur(25px);
-          
           --text-dark: #2d2d2d; 
           --text-muted: #777777;
           --shadow-main: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
@@ -329,7 +362,7 @@ export default function Dashboard() {
         .fund-amount { font-size: 28px; font-weight: 800; color: var(--primary); margin-top: 4px; }
         .fund-icon-bg { width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
         
-        .profile-avatar-small { width: 45px; height: 45px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #fff; }
+        .profile-avatar-small { width: 45px; height: 45px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #fff; overflow: hidden; }
         .profile-row { display: flex; align-items: center; justify-content: space-between; }
         .profile-name { font-size: 16px; font-weight: 700; }
         .profile-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; display: flex; align-items: center; gap: 4px;}
@@ -368,7 +401,7 @@ export default function Dashboard() {
         @keyframes modalPop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         
         .close-icon-bg { padding: 8px; background: #f0f0f0; border: none; border-radius: 50%; cursor: pointer; }
-        .modal-image-bg { width: 80px; height: 80px; background: var(--primary-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-size: 32px; font-weight: bold; color: var(--primary); }
+        .modal-image-bg { width: 80px; height: 80px; background: var(--primary-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-size: 32px; font-weight: bold; color: var(--primary); overflow: hidden; }
         .modal-title { font-size: 22px; font-weight: 800; text-align: center; }
         .modal-subtitle { font-size: 14px; color: var(--text-muted); margin-top: 4px; text-align: center; margin-bottom: 20px;}
         .info-row { display: flex; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(0,0,0,0.05); gap: 12px; }
@@ -413,9 +446,14 @@ export default function Dashboard() {
                   <h1 className="header-title">{userData?.name ? `স্বাগতম, ${userData.name.split(' ')[0]}` : 'ড্যাশবোর্ড'}</h1>
                 </div>
                 <button className="header-icon-container" onClick={() => navigate('/profile')}>
-                  <FloatingElement>
-                    <img src="/logo.jpeg" alt="logo" onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} />
-                  </FloatingElement>
+                  {/* ✅ Fix 2: হেডারে ইউজারের প্রোফাইল পিকচার দেখানো হলো */}
+                  {userData?.photoUrl ? (
+                    <img src={userData.photoUrl} alt="Profile" />
+                  ) : (
+                    <FloatingElement>
+                      <img src="/logo.jpeg" alt="logo" onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} />
+                    </FloatingElement>
+                  )}
                 </button>
               </div>
               {isAdmin && (
@@ -445,7 +483,14 @@ export default function Dashboard() {
                   <div className="clean-card">
                     <div className="profile-row">
                       <div className="profile-info" style={{display: 'flex', alignItems: 'center', gap: 12}}>
-                        <div className="profile-avatar-small">{userData.name?.charAt(0) || 'U'}</div>
+                        <div className="profile-avatar-small">
+                          {/* ✅ Fix 2: প্রোফাইল কার্ডেও ছবি */}
+                          {userData.photoUrl ? (
+                            <img src={userData.photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            userData.name?.charAt(0) || 'U'
+                          )}
+                        </div>
                         <div>
                           <div className="profile-name">{userData.name}</div>
                           <div className="profile-sub">{userData.memberId || 'ID: Pending'} • {userData.phone}</div>
@@ -561,19 +606,32 @@ export default function Dashboard() {
                 </div>
               </FadeInView>
 
+              {/* ✅ Fix 3 & 4: Spotlight Section Highlighted & Profile Pic Added */}
               <FadeInView delay={700}>
-                <div className="clean-card">
+                <div className="clean-card" style={{ 
+                  background: 'linear-gradient(135deg, rgba(108, 99, 255, 0.15) 0%, rgba(255, 255, 255, 0.6) 100%)', 
+                  border: '1px solid rgba(108, 99, 255, 0.3)',
+                  boxShadow: '0 10px 30px rgba(108, 99, 255, 0.15)'
+                }}>
                   {spotlightMember ? (
                     <>
-                      <div className="section-title">আজকের মেম্বার স্পটলাইট</div>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <div className="profile-avatar-small" style={{ width: 50, height: 50 }}>{spotlightMember.name.charAt(0)}</div>
-                        <div style={{ marginLeft: 12, flex: 1 }}>
-                          <div className="profile-name">{spotlightMember.name}</div>
-                          <div className="profile-sub">{spotlightMember.area || 'N/A'}</div>
-                        </div>
+                      <div className="section-title" style={{ color: 'var(--primary)' }}>
+                        <IoStarOutline size={22} /> আজকের মেম্বার স্পটলাইট
                       </div>
-                      <button className="link-text" style={{ marginTop: 12 }} onClick={() => { setSelectedMember(spotlightMember); setModalVisible(true); }}>বিস্তারিত দেখুন →</button>
+                      <div style={{ display: 'flex', alignItems: 'center', background: '#fff', padding: 15, borderRadius: 16, boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+                        <div className="profile-avatar-small" style={{ width: 60, height: 60, fontSize: 24 }}>
+                          {spotlightMember.photoUrl ? (
+                            <img src={spotlightMember.photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            spotlightMember.name.charAt(0)
+                          )}
+                        </div>
+                        <div style={{ marginLeft: 15, flex: 1 }}>
+                          <div className="profile-name" style={{ fontSize: 18 }}>{spotlightMember.name}</div>
+                          <div className="profile-sub" style={{ color: 'var(--primary)' }}>{spotlightMember.area || 'N/A'}</div>
+                        </div>
+                        <button className="link-text" onClick={() => { setSelectedMember(spotlightMember); setModalVisible(true); }}>বিস্তারিত →</button>
+                      </div>
                     </>
                   ) : (
                     <div style={{ textAlign: 'center' }}><IoStarOutline size={30} color="#ccc" /><p style={{ color: '#888', marginTop: 8 }}>কোনো মেম্বার নেই</p></div>
@@ -637,7 +695,13 @@ export default function Dashboard() {
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button className="close-icon-bg" onClick={() => setModalVisible(false)}><IoClose size={22} color="#333" /></button>
             </div>
-            <div className="modal-image-bg">{selectedMember.name.charAt(0)}</div>
+            <div className="modal-image-bg">
+              {selectedMember.photoUrl ? (
+                <img src={selectedMember.photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                selectedMember.name.charAt(0)
+              )}
+            </div>
             <h2 className="modal-title">{selectedMember.name}</h2>
             <p className="modal-subtitle">ID: {selectedMember.memberId || 'N/A'}</p>
             <div className="info-row"><IoWaterOutline size={20} color="#ff4757" /><span className="modal-text">রক্তের গ্রুপ: {selectedMember.bloodGroup || 'N/A'}</span></div>
