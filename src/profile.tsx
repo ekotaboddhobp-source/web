@@ -26,6 +26,7 @@ export default function ProfileScreen() {
     }
   }, [navigate]);
 
+  // ==================== ✅ FIX: FileReader finally bug ====================
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -35,31 +36,39 @@ export default function ProfileScreen() {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = async () => {
-        const base64Data = reader.result as string;
-        const token = localStorage.getItem('token');
+        try {
+          const base64Data = reader.result as string;
+          const token = localStorage.getItem('token');
+          const res = await fetch(`${API_URL}/users/profile-picture`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ image: base64Data }),
+          });
+          const data = await res.json();
 
-        const res = await fetch(`${API_URL}/users/profile-picture`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ image: base64Data }),
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-          const updatedUser = { ...userData, photoUrl: data.photoUrl };
-          localStorage.setItem('user', JSON.stringify(updatedUser));
-          setUserData(updatedUser);
-          showToast('প্রোফাইল ছবি আপডেট হয়েছে', 'success');
-        } else {
-          showToast(data.message || 'আপলোড ব্যর্থ', 'error');
+          if (data.success) {
+            const updatedUser = { ...userData, photoUrl: data.photoUrl };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setUserData(updatedUser);
+            showToast('প্রোফাইল ছবি আপডেট হয়েছে', 'success');
+          } else {
+            showToast(data.message || 'আপলোড ব্যর্থ', 'error');
+          }
+        } catch (err) {
+          showToast('ছবি আপলোডে সমস্যা', 'error');
+        } finally {
+          setUploadingPhoto(false); // ✅ onload-এর ভেতরে
         }
+      };
+      reader.onerror = () => {
+        showToast('ছবি পড়তে সমস্যা', 'error');
+        setUploadingPhoto(false);
       };
     } catch (err) {
       showToast('ছবি আপলোডে সমস্যা', 'error');
-    } finally {
       setUploadingPhoto(false);
     }
   };
@@ -248,7 +257,7 @@ export default function ProfileScreen() {
 
             <div className="action-btns">
               <button className="action-btn"><FaDownload /> ডাউনলোড</button>
-              <button className="action-btn"><FaShareAlt /> শেয়ার</button>
+              <button className="action-btn"><FaShareAlt /> শেয়ার</button>
             </div>
           </div>
 
@@ -266,7 +275,7 @@ export default function ProfileScreen() {
             <div className="setting-row" onClick={() => navigate('/profile/password')}>
               <div className="setting-left">
                 <div className="icon-bg"><FaLock size={20} color="#f0a500" /></div>
-                <span className="setting-text">পাসওয়ার্ড পরিবর্তন</span>
+                <span className="setting-text">পাসওয়ার্ড পরিবর্তন</span>
               </div>
               <span>›</span>
             </div>
