@@ -220,7 +220,7 @@ const SuperAdminScreen: React.FC = () => {
   };
 
   const deleteUser = async (id: string) => {
-    if (!window.confirm('মেম্বারটি স্থায়ীভাবে মুছে ফেলবেন?')) return;
+    if (!window.confirm('মেম্বারটি স্থায়ীভাবে মুছে ফেলবেন?')) return;
     try {
       const res = await fetch(`${API_URL}/users/${id}`, { method: 'DELETE', headers: authHeaders });
       const data = await res.json();
@@ -231,7 +231,6 @@ const SuperAdminScreen: React.FC = () => {
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
   };
 
-  // ✅ Freeze/Unfreeze
   const toggleFreeze = async (id: string, currentFrozen: boolean) => {
     const action = currentFrozen ? 'আনফ্রিজ' : 'ফ্রিজ';
     if (!window.confirm(`আপনি কি এই ইউজারকে ${action} করতে চান?`)) return;
@@ -283,7 +282,6 @@ const SuperAdminScreen: React.FC = () => {
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
   };
 
-  // ✅ Notice delete
   const handleDeleteNotice = async (id: string) => {
     if (!window.confirm('এই নোটিশটি ডিলিট করতে চান?')) return;
     try {
@@ -313,7 +311,6 @@ const SuperAdminScreen: React.FC = () => {
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
   };
 
-  // ✅ Event delete
   const handleDeleteEvent = async (id: string) => {
     if (!window.confirm('এই ইভেন্টটি ডিলিট করতে চান?')) return;
     try {
@@ -331,7 +328,7 @@ const SuperAdminScreen: React.FC = () => {
     try {
       const optionsArray = pollOptions.split(',').map(opt => opt.trim()).filter(opt => opt !== '');
       if (optionsArray.length < 2) {
-        return showToast('কমপক্ষে ২টি অপশন দিন (কমা দিয়ে পৃথক করুন)', 'error');
+        return showToast('কমপক্ষে ২টি অপশন দিন (কমা দিয়ে পৃথক করুন)', 'error');
       }
       const res = await fetch(`${API_URL}/poll/create`, {
         method: 'POST',
@@ -347,7 +344,6 @@ const SuperAdminScreen: React.FC = () => {
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
   };
 
-  // ✅ Poll delete
   const handleDeletePoll = async (id: string) => {
     if (!window.confirm('এই পোলটি ডিলিট করতে চান?')) return;
     try {
@@ -399,7 +395,6 @@ const SuperAdminScreen: React.FC = () => {
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
   };
 
-  // ✅ Mission delete
   const handleDeleteMission = async (id: string) => {
     if (!window.confirm('এই মিশনটি ডিলিট করতে চান?')) return;
     try {
@@ -412,6 +407,7 @@ const SuperAdminScreen: React.FC = () => {
     } catch (err) { showToast('সার্ভার সমস্যা', 'error'); }
   };
 
+  // ==================== ✅ FIX: FileReader finally bug ====================
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -421,42 +417,50 @@ const SuperAdminScreen: React.FC = () => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = async () => {
-        const base64Data = reader.result as string;
+        try {
+          const base64Data = reader.result as string;
 
-        const uploadRes = await fetch(`${API_URL}/upload`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify({ data: base64Data }),
-        });
-        const uploadData = await uploadRes.json();
-        if (!uploadData.success) {
-          showToast('আপলোড ব্যর্থ: ' + uploadData.message, 'error');
-          return;
-        }
-        const imageUrl = uploadData.url;
+          const uploadRes = await fetch(`${API_URL}/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
+            body: JSON.stringify({ data: base64Data }),
+          });
+          const uploadData = await uploadRes.json();
+          if (!uploadData.success) {
+            showToast('আপলোড ব্যর্থ: ' + uploadData.message, 'error');
+            return;
+          }
+          const imageUrl = uploadData.url;
 
-        const galleryRes = await fetch(`${API_URL}/gallery/add`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify({ imageUrl, title: galleryTitleInput || 'অ্যালবাম ছবি' }),
-        });
-        const galleryData = await galleryRes.json();
-        if (galleryData.success) {
-          showToast('ছবি অ্যালবামে যোগ হয়েছে', 'success');
-          setGalleryTitleInput('');
-          fetchGallery(); fetchDashboardStats();
-        } else {
-          showToast(galleryData.message, 'error');
+          const galleryRes = await fetch(`${API_URL}/gallery/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
+            body: JSON.stringify({ imageUrl, title: galleryTitleInput || 'অ্যালবাম ছবি' }),
+          });
+          const galleryData = await galleryRes.json();
+          if (galleryData.success) {
+            showToast('ছবি অ্যালবামে যোগ হয়েছে', 'success');
+            setGalleryTitleInput('');
+            fetchGallery(); fetchDashboardStats();
+          } else {
+            showToast(galleryData.message, 'error');
+          }
+        } catch (err) {
+          showToast('আপলোডে সমস্যা', 'error');
+        } finally {
+          setUploadingPhoto(false); // ✅ onload-এর ভেতরে
         }
+      };
+      reader.onerror = () => {
+        showToast('ফাইল পড়তে সমস্যা', 'error');
+        setUploadingPhoto(false);
       };
     } catch (err) {
       showToast('আপলোডে সমস্যা', 'error');
-    } finally {
       setUploadingPhoto(false);
     }
   };
 
-  // ✅ Gallery delete
   const handleDeleteGalleryPhoto = async (id: string) => {
     if (!window.confirm('এই ছবিটি ডিলিট করতে চান?')) return;
     try {
@@ -535,8 +539,6 @@ const SuperAdminScreen: React.FC = () => {
     }
   };
 
-  // ==================== RENDER FUNCTIONS ====================
-
   const renderHeader = () => (
     <div className="admin-header glass-header">
       <button className="back-btn" onClick={() => section === 'menu' ? handleLogout() : setSection('menu')}>
@@ -588,7 +590,6 @@ const SuperAdminScreen: React.FC = () => {
     </div>
   );
 
-  // ✅ Members with Freeze
   const renderMembers = () => (
     <div className="admin-content">
       <div className="section-title">পেন্ডিং মেম্বার ({pendingUsers.length})</div>
@@ -644,7 +645,6 @@ const SuperAdminScreen: React.FC = () => {
     </div>
   );
 
-  // ✅ Notice with list & delete
   const renderNotice = () => (
     <div className="admin-content">
       <div className="form-container glass-card">
@@ -672,7 +672,6 @@ const SuperAdminScreen: React.FC = () => {
     </div>
   );
 
-  // ✅ Event with list & delete
   const renderEvent = () => (
     <div className="admin-content">
       <div className="form-container glass-card">
@@ -700,7 +699,6 @@ const SuperAdminScreen: React.FC = () => {
     </div>
   );
 
-  // ✅ Poll with list & delete
   const renderPoll = () => (
     <div className="admin-content">
       <div className="form-container glass-card">
@@ -766,7 +764,6 @@ const SuperAdminScreen: React.FC = () => {
     </div>
   );
 
-  // ✅ Mission list with delete
   const renderMissionsList = () => (
     <div className="admin-content">
       <div className="section-title">চলমান মিশন ({missions.length})</div>
@@ -787,7 +784,6 @@ const SuperAdminScreen: React.FC = () => {
     </div>
   );
 
-  // ✅ Album with delete
   const renderAlbum = () => (
     <div className="admin-content">
       <div className="form-container glass-card">
