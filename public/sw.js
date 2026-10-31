@@ -1,21 +1,22 @@
-const CACHE_NAME = 'ekotaboddho-cache-v1';
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/logo.jpeg'
-];
+const CACHE_NAME = 'ekotaboddho-cache-v2'; // ✅ ভার্সন বাড়ানো হলো
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-  );
+  self.skipWaiting(); // নতুন সার্ভিস ওয়ার্কার সাথে সাথে অ্যাক্টিভ হবে
 });
 
 self.addEventListener('fetch', event => {
   // API কলগুলো ক্যাশ করা যাবে না
-  if (event.request.url.includes('/api/')) return;
+  if (event.request.url.includes('/api/') || event.request.method !== 'GET') return;
   
+  // HTML পেজের জন্য Network-First (যাতে লেটেস্ট কোড লোড হয়)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // বাকি ফাইলগুলোর জন্য Cache-First
   event.respondWith(
     caches.match(event.request)
       .then(response => response || fetch(event.request))
@@ -23,13 +24,12 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName); // পুরনো ক্যাশ ডিলিট
           }
         })
       );
