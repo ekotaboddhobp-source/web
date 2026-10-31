@@ -27,7 +27,7 @@ const FadeInView: React.FC<{ children: React.ReactNode; delay?: number }> = ({ c
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  // ✅ Fix 1: localStorage থেকে সরাসরি স্টেট ইনিশিয়ালাইজ করা হলো, যাতে পপআপ বারবার না আসে
+  // ✅ Fix 1: localStorage থেকে সরাসরি স্টেট ইনিশিয়ালাইজ করা হলো, যাতে Rules Popup বারবার না আসে
   const [userData, setUserData] = useState<any>(() => {
     const stored = localStorage.getItem('user');
     return stored ? JSON.parse(stored) : null;
@@ -167,7 +167,7 @@ export default function Dashboard() {
     } else if (!rulesAccepted) {
       setShowRulesModal(true);
     }
-  }, [isApproved, rulesAccepted, userData?._id, fetchAllData]); // userData._id যুক্ত করা হলো
+  }, [isApproved, rulesAccepted, userData?._id, fetchAllData]);
 
   const handleRefresh = () => {
     if (isApproved) {
@@ -228,30 +228,15 @@ export default function Dashboard() {
     }
   };
 
-  const handleSuperAdminLogin = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/verify-super`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ password: superPassword }),
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        localStorage.setItem('superAdminVerified', 'true');
-        localStorage.setItem('superToken', data.superToken);
-        setSuperAdminVisible(false);
-        setSuperPassword('');
-        navigate('/superadmin');
-      } else {
-        showToast(data.message || 'Access Denied - Incorrect Password!', 'error');
-      }
-    } catch {
-      showToast('সার্ভার সমস্যা', 'error');
+  // ✅ আগের মতো হার্ডকোডেড পাসওয়ার্ড ফিরিয়ে আনা হলো
+  const handleSuperAdminLogin = () => {
+    if (superPassword === '186401') {
+      localStorage.setItem('superAdminVerified', 'true');
+      setSuperAdminVisible(false);
+      setSuperPassword('');
+      navigate('/superadmin');
+    } else {
+      showToast('Access Denied - Incorrect Password!', 'error');
     }
   };
 
@@ -446,7 +431,7 @@ export default function Dashboard() {
                   <h1 className="header-title">{userData?.name ? `স্বাগতম, ${userData.name.split(' ')[0]}` : 'ড্যাশবোর্ড'}</h1>
                 </div>
                 <button className="header-icon-container" onClick={() => navigate('/profile')}>
-                  {/* ✅ Fix 2: হেডারে ইউজারের প্রোফাইল পিকচার দেখানো হলো */}
+                  {/* ✅ হেডারে ইউজারের প্রোফাইল পিকচার দেখানো হলো */}
                   {userData?.photoUrl ? (
                     <img src={userData.photoUrl} alt="Profile" />
                   ) : (
@@ -484,7 +469,7 @@ export default function Dashboard() {
                     <div className="profile-row">
                       <div className="profile-info" style={{display: 'flex', alignItems: 'center', gap: 12}}>
                         <div className="profile-avatar-small">
-                          {/* ✅ Fix 2: প্রোফাইল কার্ডেও ছবি */}
+                          {/* ✅ প্রোফাইল কার্ডেও ছবি */}
                           {userData.photoUrl ? (
                             <img src={userData.photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           ) : (
@@ -606,7 +591,7 @@ export default function Dashboard() {
                 </div>
               </FadeInView>
 
-              {/* ✅ Fix 3 & 4: Spotlight Section Highlighted & Profile Pic Added */}
+              {/* ✅ Spotlight Section Highlighted & Profile Pic Added */}
               <FadeInView delay={700}>
                 <div className="clean-card" style={{ 
                   background: 'linear-gradient(135deg, rgba(108, 99, 255, 0.15) 0%, rgba(255, 255, 255, 0.6) 100%)', 
